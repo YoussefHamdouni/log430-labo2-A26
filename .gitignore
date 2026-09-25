@@ -26,3 +26,5 @@ dist/
 
 # pytest cache
 .pytest_cache/
+
+.idea
