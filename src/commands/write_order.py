@@ -114,11 +114,16 @@ def sync_all_orders_to_redis():
     rows_added = 0
     try:
         if len(orders_in_redis) == 0:
-            # mysql
-            orders_from_mysql = []
+            orders_from_mysql = get_orders_from_mysql()
+
+            pipe = r.pipeline()
             for order in orders_from_mysql:
-                # TODO: terminez l'implementation
-                print(order)
+                pipe.hset(f"order:{order.id}", mapping={
+                    "id": order.id,
+                    "user_id": order.user_id,
+                    "total_amount": float(order.total_amount),
+                })
+            pipe.execute()
             rows_added = len(orders_from_mysql)
         else:
             print('Redis already contains orders, no need to sync!')
@@ -126,4 +131,5 @@ def sync_all_orders_to_redis():
         print(e)
         return 0
     finally:
+        r.close()
         return len(orders_in_redis) + rows_added
