@@ -100,7 +100,31 @@ def delete_order(order_id: int):
 def add_order_to_redis(order_id, user_id, total_amount, items):
     """Insert order to Redis"""
     r = get_redis_conn()
-    print(r)
+    try:
+        r.hset(f"order:{order_id}", mapping={
+            "id": order_id,
+            "user_id": user_id,
+            "total_amount": float(total_amount),
+        })
+        for item in items:
+            pid = int(item["product_id"])
+            qty = int(float(item["quantity"]))
+            r.incrby(f"product:{pid}", qty)
+            
+    except Exception as e:
+        print(f"Erreur Redis lors de l'ajout : {e}")
+    finally:
+        r.close()
+
+def delete_order_from_redis(order_id):
+    """Delete order from Redis"""
+    r = get_redis_conn()
+    try:
+        r.delete(f"order:{order_id}")
+    except Exception as e:
+        print(f"Erreur Redis lors de la suppression : {e}")
+    finally:
+        r.close()
 
 def delete_order_from_redis(order_id):
     """Delete order from Redis"""
