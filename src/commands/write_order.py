@@ -126,10 +126,6 @@ def delete_order_from_redis(order_id):
     finally:
         r.close()
 
-def delete_order_from_redis(order_id):
-    """Delete order from Redis"""
-    pass
-
 def sync_all_orders_to_redis():
     """ Sync orders from MySQL to Redis """
     # redis

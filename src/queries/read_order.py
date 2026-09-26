@@ -7,6 +7,7 @@ Auteurs : Gabriel C. Ullmann, Fabio Petrillo, 2025
 from db import get_sqlalchemy_session, get_redis_conn
 from sqlalchemy import desc
 from models.order import Order
+from collections import defaultdict
 
 def get_order_by_id(order_id):
     """Get order by ID from Redis"""
@@ -40,6 +41,13 @@ def get_orders_from_redis(limit=9999):
 
 def get_highest_spending_users():
     """Get report of best selling products"""
-    # TODO: écrivez la méthode
-    # triez le résultat par nombre de commandes (ordre décroissant)
-    return []
+    orders = get_orders_from_redis()
+    expenses_by_user = defaultdict(float)
+    for order in orders:
+        expenses_by_user[order["user_id"]] += order["total_amount"]
+    highest_spending_users = sorted(
+        expenses_by_user.items(),
+        key=lambda item:[1],
+        reverse=True 
+    )
+    return highest_spending_users[:10]
