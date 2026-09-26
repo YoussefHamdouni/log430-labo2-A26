@@ -47,7 +47,7 @@ def get_highest_spending_users():
         expenses_by_user[order["user_id"]] += order["total_amount"]
     highest_spending_users = sorted(
         expenses_by_user.items(),
-        key=lambda item:[1],
+        key=lambda item: item[1],
         reverse=True 
     )
     return highest_spending_users[:10]
