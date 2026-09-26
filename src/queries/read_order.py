@@ -43,3 +43,19 @@ def get_highest_spending_users():
     # TODO: écrivez la méthode
     # triez le résultat par nombre de commandes (ordre décroissant)
     return []
+
+def get_best_selling_products(limit=10):
+    """Get report of best selling products"""
+    r = get_redis_conn()
+    try:
+        keys = r.keys("product:*")
+        products_sold = []
+        for key in keys:
+            product_id = int(key.split(":")[1])
+            quantity = int(r.get(key) or 0)
+            products_sold.append((product_id, quantity))
+
+        best_sellers = sorted(products_sold, key=lambda item: item[1], reverse=True)
+        return best_sellers[:limit]
+    finally:
+        r.close()

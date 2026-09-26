@@ -147,6 +147,8 @@ def sync_all_orders_to_redis():
                     "user_id": order.user_id,
                     "total_amount": float(order.total_amount),
                 })
+                for item in order.order_items:
+                    pipe.incrby(f"product:{item.product_id}", int(item.quantity))
             pipe.execute()
             rows_added = len(orders_from_mysql)
         else:
