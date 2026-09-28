@@ -64,7 +64,6 @@ def add_order(user_id: int, items: list):
 
         session.commit()
 
-        # TODO: ajouter la commande à Redis
         add_order_to_redis(order_id, user_id, total_amount, items)
 
         return order_id
@@ -80,13 +79,12 @@ def delete_order(order_id: int):
     session = get_sqlalchemy_session()
     try:
         order = session.query(Order).filter(Order.id == order_id).first()
-        
         if order:
+            order_items = session.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+            items_data = [{'product_id': item.product_id, 'quantity': item.quantity} for item in order_items]
             session.delete(order)
             session.commit()
-
-            # TODO: supprimer la commande à Redis
-            delete_order_from_redis(order_id)
+            delete_order_from_redis(order_id, items_data)
             return 1  
         else:
             return 0  
@@ -98,37 +96,47 @@ def delete_order(order_id: int):
         session.close()
 
 def add_order_to_redis(order_id, user_id, total_amount, items):
-    """Insert order to Redis"""
+    """Insert order to Redis and increment product sales atomically"""
     r = get_redis_conn()
     try:
-        r.hset(f"order:{order_id}", mapping={
+        pipe = r.pipeline()
+        
+        pipe.hset(f"order:{order_id}", mapping={
             "id": order_id,
             "user_id": user_id,
             "total_amount": float(total_amount),
         })
+        
         for item in items:
             pid = int(item["product_id"])
             qty = int(float(item["quantity"]))
-            r.incrby(f"product:{pid}", qty)
+            pipe.incrby(f"product:{pid}", qty)
             
+        pipe.execute()
     except Exception as e:
         print(f"Erreur Redis lors de l'ajout : {e}")
     finally:
         r.close()
 
-def delete_order_from_redis(order_id):
-    """Delete order from Redis"""
+def delete_order_from_redis(order_id, items_data=None):
+    """Delete order from Redis and decrement product sales atomically"""
     r = get_redis_conn()
     try:
-        r.delete(f"order:{order_id}")
+        pipe = r.pipeline()
+        
+        pipe.delete(f"order:{order_id}")
+        
+        if items_data:
+            for item in items_data:
+                pid = int(item["product_id"])
+                qty = int(float(item["quantity"]))
+                pipe.decrby(f"product:{pid}", qty)
+                
+        pipe.execute()
     except Exception as e:
         print(f"Erreur Redis lors de la suppression : {e}")
     finally:
         r.close()
-
-def delete_order_from_redis(order_id):
-    """Delete order from Redis"""
-    pass
 
 def sync_all_orders_to_redis():
     """ Sync orders from MySQL to Redis """
