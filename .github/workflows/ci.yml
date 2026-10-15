@@ -1,5 +1,5 @@
 name: CI/CD
-
+# Seulement exécuter les tests sur la branche main et lors des pull requests
 on:
   push:
     branches: [ main ]
