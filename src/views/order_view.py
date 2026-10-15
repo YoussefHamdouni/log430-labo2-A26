@@ -5,13 +5,13 @@ Auteurs : Gabriel C. Ullmann, Fabio Petrillo, 2025
 """
 import numbers
 from views.template_view import get_template, get_param
-from controllers.order_controller import create_order, delete_order, list_orders_from_redis
+from controllers.order_controller import create_order, list_orders_from_redis
+from controllers.order_controller import remove_order as remove_order_controller
 from controllers.product_controller import list_products
 from controllers.user_controller import list_users
 
 def show_order_form():
     """ Show order form and list """
-    # TODO: utilisez Redis seulement
     orders = list_orders_from_redis(10)
     products = list_products(99)
     users = list_users(99)
@@ -85,7 +85,7 @@ def register_order(params):
     
 def remove_order(order_id):
     """ Remove an order with the given ID """
-    result = delete_order(order_id)
+    result = remove_order_controller(order_id)
     if result:
         return get_template(f"""
             <h2>Information: la commande {order_id} a été supprimée.</h2>

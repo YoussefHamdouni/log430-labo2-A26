@@ -4,12 +4,11 @@ SPDX - License - Identifier: LGPL - 3.0 - or -later
 Auteurs : Gabriel C. Ullmann, Fabio Petrillo, 2025
 """
 from views.template_view import get_template, get_param
-from controllers.order_controller import get_report_best_sellers
-from queries.read_order import get_highest_spending_users
+from controllers.order_controller import get_report_best_sellers, get_report_highest_spending_users
 
 def show_highest_spending_users():
     """ Show report of highest spending users """
-    users = get_highest_spending_users()
+    users = get_report_highest_spending_users()
     user_rows = [
         f"<li>Utilisateur {user_id}: ${total:.2f}</li>"
         for user_id, total in users

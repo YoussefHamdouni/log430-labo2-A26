@@ -1,49 +1,80 @@
-name: CI
+name: CI/CD
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
 jobs:
   test:
+    name: Tests (MySQL + Redis)
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout dépot
+      - name: Checkout dépôt
         uses: actions/checkout@v4
 
-      - name: Créer fichier .env (TODO - utilisez les secrets)
+      - name: Créer le fichier .env à partir des secrets
+        env:
+          DB_USER: ${{ secrets.DB_USER || 'labo02' }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD || 'labo02' }}
         run: |
-          echo "DB_HOST=mysql" >> .env
-          echo "DB_PORT=3306" >> .env
-          echo "DB_NAME=labo02_db" >> .env
-          echo "DB_USER=labo02" >> .env
-          echo "DB_PASS=labo02" >> .env
-          echo "REDIS_HOST=redis" >> .env
-          echo "REDIS_PORT=6379" >> .env
-          echo "REDIS_DB=0" >> .env
+          {
+            echo "DB_HOST=mysql"
+            echo "DB_PORT=3306"
+            echo "DB_NAME=labo02_db"
+            echo "DB_USER=${DB_USER}"
+            echo "DB_PASSWORD=${DB_PASSWORD}"
+            echo "REDIS_HOST=redis"
+            echo "REDIS_PORT=6379"
+            echo "REDIS_DB=0"
+          } > .env
 
-      - name: Démarrer le conteneur
+      - name: Démarrer les conteneurs (attend que MySQL et Redis soient « healthy »)
         run: |
           docker network create labo02-network
-          docker compose up -d
+          docker compose up -d --build --wait --wait-timeout 180
 
-      - name: Attendre MySQL
-        run: |
-          sleep 10
-          timeout=60
-          until docker exec mysql mysqladmin ping -h localhost -u root -proot --silent; do
-            echo "Waiting for MySQL..."
-            sleep 3
-            timeout=$((timeout - 3))
-            if [ $timeout -le 0 ]; then
-              echo "MySQL failed to start"
-              exit 1
-            fi
-          done
-          sleep 5
+      - name: Exécuter les tests
+        run: docker compose exec -T store_manager pytest -v
 
-      - name: Éxécuter les tests
-        run: docker exec store_manager_cli pytest
+      - name: Logs en cas d'échec
+        if: failure()
+        run: docker compose logs
 
-      - name: Cleanup
+      - name: Nettoyage
         if: always()
         run: docker compose down -v
+
+  publish:
+    name: Publier l'image sur GHCR
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout dépôt
+        uses: actions/checkout@v4
+
+      - name: Authentification à GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Déterminer le nom de l'image (minuscules)
+        id: image
+        run: echo "name=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Construire et publier l'image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
